@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 const SUPA_URL = "https://hhjkawwknbmyjvemcwxq.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoamthd3drbmJteWp2ZW1jd3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NjE4NzUsImV4cCI6MjA5NDIzNzg3NX0.yDAC12BTUXYMSWVN4EhDxpiEQZQn5bTp87IA6LyFKNc";
 
+// ─── HACHAGE MOT DE PASSE ─────────────────────────────────────────────────────
+async function hashPassword(password) {
+  const msgBuffer = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 const headers = {
   "Content-Type": "application/json",
   "apikey": SUPA_KEY,
@@ -154,7 +162,6 @@ function SBadge({ statut }) {
   return <span className={`badge ${s.cls}`}>{s.label}</span>;
 }
 
-// SQL pour créer les tables — affiché à l'utilisateur
 const SETUP_SQL = `-- À exécuter dans Supabase > SQL Editor
 
 create table if not exists utilisateurs (
@@ -200,7 +207,8 @@ function Login({ onLogin }) {
   async function login() {
     setLoading(true); setErr("");
     try {
-      const users = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(f.email)}&password=eq.${encodeURIComponent(f.password)}&limit=1`);
+      const hashed = await hashPassword(f.password);
+      const users = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(f.email)}&password=eq.${encodeURIComponent(hashed)}&limit=1`);
       if (!users.length) { setErr("Email ou mot de passe incorrect."); return; }
       onLogin(users[0]);
     } catch(e) {
@@ -215,7 +223,8 @@ function Login({ onLogin }) {
     try {
       const existing = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(f.email)}&limit=1`);
       if (existing.length) { setErr("Email déjà utilisé."); return; }
-      const [u] = await sbPost("utilisateurs", { role:"client", nom:f.nom, email:f.email, password:f.password, tel:f.tel, adresse:f.adresse, secteur:f.secteur });
+      const hashed = await hashPassword(f.password);
+      const [u] = await sbPost("utilisateurs", { role:"client", nom:f.nom, email:f.email, password:hashed, tel:f.tel, adresse:f.adresse, secteur:f.secteur });
       onLogin(u);
     } catch(e) {
       setErr("Erreur. Vérifie que les tables sont créées.");
@@ -292,8 +301,6 @@ function ClientApp({ user, onLogout }) {
   }, [user.id]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Polling léger toutes les 15s pour mise à jour statut
   useEffect(() => {
     const t = setInterval(load, 15000);
     return () => clearInterval(t);
