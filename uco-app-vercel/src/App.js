@@ -10,6 +10,16 @@ async function hashPassword(password) {
   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+async function sendEmail(to, subject, html) {
+  try {
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, subject, html }),
+    });
+  } catch(e) { console.error("Email error:", e); }
+}
+
 const headers = {
   "Content-Type": "application/json",
   "apikey": SUPA_KEY,
@@ -123,10 +133,6 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .vpill{display:inline-flex;align-items:center;gap:4px;background:rgba(57,217,106,.08);border:1px solid rgba(57,217,106,.2);border-radius:20px;padding:3px 10px;font-family:'DM Mono',monospace;font-size:12px;color:${G.accent}}
 .spinner{width:20px;height:20px;border:2px solid ${G.border};border-top-color:${G.accent};border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.loading-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:${G.bg}}
-.loading-screen .llogo{font-family:'DM Mono',monospace;font-size:32px;color:${G.accent};letter-spacing:-1px}
-.setup-box{background:${G.card};border:1px solid ${G.border};border-radius:16px;padding:20px;margin-top:16px;max-width:380px;width:100%}
-.setup-box pre{font-family:'DM Mono',monospace;font-size:11px;color:${G.accent};white-space:pre-wrap;word-break:break-all;line-height:1.6}
 .stat-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
 .stat-bar{width:100%;background:${G.accentDark};border-radius:4px 4px 0 0;transition:height .3s}
 .stat-bar-label{font-size:9px;color:${G.textMuted}}
@@ -170,10 +176,8 @@ const SETUP_SQL = `-- À exécuter dans Supabase > SQL Editor
 create table if not exists utilisateurs (
   id uuid primary key default gen_random_uuid(),
   role text not null default 'client',
-  nom text not null,
-  email text unique not null,
-  password text not null,
-  tel text, adresse text, secteur text,
+  nom text not null, email text unique not null,
+  password text not null, tel text, adresse text, secteur text,
   created_at timestamptz default now()
 );
 create table if not exists demandes (
@@ -181,11 +185,10 @@ create table if not exists demandes (
   client_id uuid references utilisateurs(id),
   client_nom text, adresse text, date_souhaitee date,
   creneau text, volume_estime integer, remarque text,
-  statut text default 'en_attente',
-  created_at timestamptz default now()
+  statut text default 'en_attente', created_at timestamptz default now()
 );
 insert into utilisateurs (role, nom, email, password, tel)
-values ('collecteur', 'Muslum', 'muslum@amonenergy.fr', 'admin123', '06 00 00 00 00')
+values ('collecteur','Muslum','muslum@amonenergy.fr','admin123','06 00 00 00 00')
 on conflict (email) do nothing;`;
 
 // ── LOGIN ──────────────────────────────────────────────────────────────────────
@@ -236,17 +239,13 @@ function Login({ onLogin }) {
           <button className={`tbtn ${mode==="register"?"active":""}`} onClick={()=>{setMode("register");setErr("");setShowSetup(false);}}>S'inscrire</button>
         </div>
         {err && <div className="alert aerr">{err}</div>}
-        {showSetup && (
-          <div className="setup-box">
-            <p style={{fontSize:12,color:G.warn,marginBottom:10,fontWeight:600}}>⚠️ Tables manquantes — exécute ce SQL dans Supabase :</p>
-            <pre>{SETUP_SQL}</pre>
-          </div>
-        )}
+        {showSetup && <div className="setup-box"><p style={{fontSize:12,color:G.warn,marginBottom:10,fontWeight:600}}>⚠️ Tables manquantes</p><pre>{SETUP_SQL}</pre></div>}
         {!showSetup && mode === "login" && (
           <>
             <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="votre@email.fr" value={f.email} onChange={up("email")} /></div>
             <div className="fg"><label className="fl">MOT DE PASSE</label><input className="fi" type="password" placeholder="••••••••" value={f.password} onChange={up("password")} onKeyDown={e=>e.key==="Enter"&&login()} /></div>
-            <button className="btn bp bfull" onClick={login} disabled={loading}>{loading ? <span className="spinner"/> : "Se connecter"}</button>
+            <button className="btn bp bfull" onClick={login} disabled={loading}>{loading?<span className="spinner"/>:"Se connecter"}</button>
+            <p style={{textAlign:"center",marginTop:12,fontSize:12,color:G.textMuted,cursor:"pointer"}} onClick={()=>setMode("forgot")}>Mot de passe oublié ?</p>
           </>
         )}
         {!showSetup && mode === "register" && (
@@ -261,9 +260,62 @@ function Login({ onLogin }) {
                 {["Restaurant","Hôtel","Collectivité","Traiteur","Boulangerie","Autre"].map(s=><option key={s}>{s}</option>)}
               </select>
             </div>
-            <button className="btn bp bfull" onClick={register} disabled={loading}>{loading ? <span className="spinner"/> : "Créer mon compte"}</button>
+            <button className="btn bp bfull" onClick={register} disabled={loading}>{loading?<span className="spinner"/>:"Créer mon compte"}</button>
           </>
         )}
+        {mode === "forgot" && <ForgotPassword onBack={()=>setMode("login")} />}
+      </div>
+    </div>
+  );
+}
+
+// ── MOT DE PASSE OUBLIÉ ────────────────────────────────────────────────────────
+function ForgotPassword({ onBack }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function send() {
+    if (!email) return setErr("Entre ton email.");
+    setLoading(true); setErr("");
+    try {
+      const users = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(email)}&limit=1`);
+      if (!users.length) { setErr("Aucun compte trouvé avec cet email."); return; }
+      const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      await sbPatch("utilisateurs", users[0].id, { reset_token: token });
+      const resetLink = `${window.location.origin}?reset=${token}`;
+      await sendEmail(
+        email,
+        "Réinitialisation de votre mot de passe UCO Collect",
+        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px">
+          <h2 style="color:#39d96a">UCO Collect</h2>
+          <p>Bonjour,</p>
+          <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+          <a href="${resetLink}" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:20px 0">Réinitialiser mon mot de passe</a>
+          <p style="color:#666;font-size:12px">Ce lien expire dans 1 heure. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+        </div>`
+      );
+      setSent(true);
+    } catch(e) { setErr("Erreur, réessaie."); }
+    finally { setLoading(false); }
+  }
+
+  if (sent) return (
+    <div>
+      <div className="alert asuc">✓ Email envoyé ! Vérifie ta boîte mail.</div>
+      <button className="btn bo2 bfull" onClick={onBack}>Retour à la connexion</button>
+    </div>
+  );
+
+  return (
+    <div>
+      <p style={{fontSize:14,color:G.textMuted,marginBottom:16}}>Entre ton email pour recevoir un lien de réinitialisation.</p>
+      {err && <div className="alert aerr">{err}</div>}
+      <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="votre@email.fr" value={email} onChange={e=>setEmail(e.target.value)} /></div>
+      <div className="ar">
+        <button className="btn bo2" style={{flex:1}} onClick={onBack}>Retour</button>
+        <button className="btn bp" style={{flex:2}} onClick={send} disabled={loading}>{loading?<span className="spinner"/>:"Envoyer le lien"}</button>
       </div>
     </div>
   );
@@ -274,9 +326,7 @@ function StatsTab({ demandes, clients }) {
   const totalVol = demandes.filter(d=>d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0);
   const totalCA = (totalVol * 0.5).toFixed(0);
   const collectees = demandes.filter(d=>d.statut==="collectée").length;
-  const enAttente = demandes.filter(d=>d.statut==="en_attente").length;
 
-  // Volume par mois (6 derniers mois)
   const now = new Date();
   const mois = Array.from({length:6}, (_,i) => {
     const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
@@ -284,15 +334,14 @@ function StatsTab({ demandes, clients }) {
   });
   const volParMois = mois.map(m => {
     const vol = demandes
-      .filter(d => d.statut==="collectée" && d.date_souhaitee)
-      .filter(d => { const dd = new Date(d.date_souhaitee); return dd.getMonth()===m.month && dd.getFullYear()===m.year; })
+      .filter(d=>d.statut==="collectée"&&d.date_souhaitee)
+      .filter(d=>{ const dd=new Date(d.date_souhaitee); return dd.getMonth()===m.month&&dd.getFullYear()===m.year; })
       .reduce((s,d)=>s+(d.volume_estime||0),0);
-    return { ...m, vol };
+    return {...m, vol};
   });
   const maxVol = Math.max(...volParMois.map(m=>m.vol), 1);
 
-  // Top clients
-  const topClients = clients.map(c => ({
+  const topClients = clients.map(c=>({
     ...c,
     vol: demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0),
     nb: demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length,
@@ -302,59 +351,46 @@ function StatsTab({ demandes, clients }) {
     <div className="page">
       <p className="ptitle">Statistiques</p>
       <p className="psub">Vue d'ensemble de l'activité</p>
-
-      {/* Métriques */}
       <div className="sgrid">
         <div className="sc"><div className="sv">{clients.length}</div><div className="sl">Clients inscrits</div></div>
         <div className="sc"><div className="sv">{collectees}</div><div className="sl">Collectes réalisées</div></div>
         <div className="sc"><div className="sv">{totalVol} L</div><div className="sl">Volume total</div></div>
         <div className="sc"><div className="sv">{totalCA} €</div><div className="sl">CA estimé</div></div>
       </div>
-
-      {/* Graphique volumes */}
       <div className="card" style={{marginBottom:16}}>
         <p className="stitle" style={{margin:"0 0 12px"}}>Volume collecté / mois (L)</p>
         <div style={{display:"flex",alignItems:"flex-end",gap:8,height:80}}>
-          {volParMois.map((m,i) => (
+          {volParMois.map((m,i)=>(
             <div key={i} className="stat-bar-wrap">
               <div className="stat-bar-val">{m.vol>0?m.vol:""}</div>
-              <div className="stat-bar" style={{height: m.vol>0 ? `${Math.round((m.vol/maxVol)*60)+10}px` : "4px", opacity: m.vol>0?1:0.3}}/>
+              <div className="stat-bar" style={{height:m.vol>0?`${Math.round((m.vol/maxVol)*60)+10}px`:"4px",opacity:m.vol>0?1:0.3}}/>
               <div className="stat-bar-label">{m.label}</div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* Objectifs */}
       <div className="card" style={{marginBottom:16}}>
         <p className="stitle" style={{margin:"0 0 12px"}}>Objectifs</p>
         {[
-          { label:"Volume collecté", val:totalVol, max:20000, unit:"L" },
-          { label:"Clients actifs", val:clients.length, max:200, unit:"" },
-          { label:"Collectes réalisées", val:collectees, max:150, unit:"" },
-        ].map((o,i) => (
+          {label:"Volume collecté",val:totalVol,max:20000,unit:"L"},
+          {label:"Clients actifs",val:clients.length,max:200,unit:""},
+          {label:"Collectes réalisées",val:collectees,max:150,unit:""},
+        ].map((o,i)=>(
           <div key={i} style={{marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
               <span style={{color:G.text}}>{o.label}</span>
               <span style={{color:G.textMuted,fontFamily:"DM Mono"}}>{o.val}{o.unit} / {o.max}{o.unit}</span>
             </div>
-            <div className="progress-track">
-              <div className="progress-fill" style={{width:`${Math.min((o.val/o.max)*100,100)}%`}}/>
-            </div>
+            <div className="progress-track"><div className="progress-fill" style={{width:`${Math.min((o.val/o.max)*100,100)}%`}}/></div>
           </div>
         ))}
       </div>
-
-      {/* Top clients */}
       <p className="stitle">Top clients par volume</p>
-      {topClients.length === 0 && <div className="empty">{Ic.drop}<p>Aucune collecte réalisée</p></div>}
-      {topClients.map((c,i) => (
+      {topClients.length===0&&<div className="empty">{Ic.drop}<p>Aucune collecte réalisée</p></div>}
+      {topClients.map((c,i)=>(
         <div className="card" key={c.id}>
           <div className="ch">
-            <div>
-              <div className="ct">{i+1}. {c.nom}</div>
-              <div className="cs">{c.secteur} · {c.nb} collecte{c.nb>1?"s":""}</div>
-            </div>
+            <div><div className="ct">{i+1}. {c.nom}</div><div className="cs">{c.secteur} · {c.nb} collecte{c.nb>1?"s":""}</div></div>
             <span className="vpill">{Ic.drop} {c.vol} L</span>
           </div>
         </div>
@@ -381,21 +417,39 @@ function ClientApp({ user, onLogout }) {
     } finally { setLoading(false); }
   }, [user.id]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
+  useEffect(()=>{load();},[load]);
+  useEffect(()=>{const t=setInterval(load,15000);return()=>clearInterval(t);},[load]);
 
   async function submit() {
-    if (!form.date_souhaitee || !form.volume_estime) return;
+    if (!form.date_souhaitee||!form.volume_estime) return;
     setSubmitting(true);
     try {
       const [d] = await sbPost("demandes", {
-        client_id: user.id, client_nom: user.nom, adresse: user.adresse,
-        date_souhaitee: form.date_souhaitee, creneau: form.creneau,
-        volume_estime: parseInt(form.volume_estime), remarque: form.remarque, statut: "en_attente",
+        client_id:user.id, client_nom:user.nom, adresse:user.adresse,
+        date_souhaitee:form.date_souhaitee, creneau:form.creneau,
+        volume_estime:parseInt(form.volume_estime), remarque:form.remarque, statut:"en_attente",
       });
-      setDemandes(p => [d, ...p]);
+      setDemandes(p=>[d,...p]);
       setForm({date_souhaitee:"",creneau:"matin",volume_estime:"",remarque:""});
       setModal(false); setOk(true); setTimeout(()=>setOk(false),3000);
+      // Email notification au collecteur
+      await sendEmail(
+        "muslum@amonenergy.fr",
+        `🛢️ Nouvelle demande de collecte — ${user.nom}`,
+        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#070c09;color:#e8f5eb;border-radius:12px">
+          <h2 style="color:#39d96a;margin-bottom:4px">UCO Collect</h2>
+          <p style="color:#6b8f72;margin-bottom:20px">Nouvelle demande de collecte</p>
+          <div style="background:#131f16;border:1px solid #1c2e20;border-radius:10px;padding:16px;margin-bottom:16px">
+            <p><strong>Client :</strong> ${user.nom}</p>
+            <p><strong>Adresse :</strong> ${user.adresse}</p>
+            <p><strong>Date souhaitée :</strong> ${form.date_souhaitee}</p>
+            <p><strong>Créneau :</strong> ${form.creneau}</p>
+            <p><strong>Volume estimé :</strong> ${form.volume_estime} L</p>
+            ${form.remarque?`<p><strong>Remarque :</strong> ${form.remarque}</p>`:""}
+          </div>
+          <a href="https://uco-collect.vercel.app" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Voir dans l'app</a>
+        </div>`
+      );
     } finally { setSubmitting(false); }
   }
 
@@ -424,9 +478,9 @@ function ClientApp({ user, onLogout }) {
             <button className="btn bo2 bsm" onClick={load} style={{padding:"4px 10px"}}>{Ic.refresh}</button>
           </div>
           <div style={{marginTop:12}}>
-            {loading && <div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
-            {!loading && demandes.length===0 && <div className="empty">{Ic.drop}<p>Aucune demande pour l'instant</p></div>}
-            {!loading && demandes.slice(0,5).map(d => (
+            {loading&&<div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
+            {!loading&&demandes.length===0&&<div className="empty">{Ic.drop}<p>Aucune demande pour l'instant</p></div>}
+            {!loading&&demandes.slice(0,5).map(d=>(
               <div className="card" key={d.id}>
                 <div className="ch"><div><div className="ct">{fmtDate(d.date_souhaitee)}</div><div className="cs">{CRENEAUX[d.creneau]}</div></div><SBadge statut={d.statut}/></div>
                 <span className="vpill">{Ic.drop} {d.volume_estime} L estimés</span>
@@ -439,13 +493,13 @@ function ClientApp({ user, onLogout }) {
         <div className="page">
           <p className="ptitle">Mes demandes</p>
           <p className="psub">{demandes.length} demande{demandes.length>1?"s":""}</p>
-          {loading && <div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
-          {!loading && demandes.length===0 && <div className="empty">{Ic.list}<p>Aucune demande</p></div>}
-          {!loading && demandes.map(d => (
+          {loading&&<div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
+          {!loading&&demandes.length===0&&<div className="empty">{Ic.list}<p>Aucune demande</p></div>}
+          {!loading&&demandes.map(d=>(
             <div className="card" key={d.id}>
               <div className="ch"><div><div className="ct">{fmtDate(d.date_souhaitee)}</div><div className="cs">{CRENEAUX[d.creneau]}</div></div><SBadge statut={d.statut}/></div>
               <span className="vpill" style={{marginBottom:8}}>{Ic.drop} {d.volume_estime} L</span>
-              {d.remarque && <div className="ir">{Ic.bell}<span style={{color:G.text}}>{d.remarque}</span></div>}
+              {d.remarque&&<div className="ir">{Ic.bell}<span style={{color:G.text}}>{d.remarque}</span></div>}
               <div className="ir">{Ic.clock} Envoyée le {fmtDate(d.created_at)}</div>
             </div>
           ))}
@@ -511,22 +565,39 @@ function CollecteurApp({ user, onLogout }) {
     setLoading(true);
     try {
       const [d, u] = await Promise.all([
-        sbGet("demandes", "order=created_at.desc"),
-        sbGet("utilisateurs", "role=eq.client&order=created_at.desc"),
+        sbGet("demandes","order=created_at.desc"),
+        sbGet("utilisateurs","role=eq.client&order=created_at.desc"),
       ]);
       setDemandes(d); setClients(u);
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { const t = setInterval(load, 10000); return ()=>clearInterval(t); }, [load]);
+  useEffect(()=>{load();},[load]);
+  useEffect(()=>{const t=setInterval(load,10000);return()=>clearInterval(t);},[load]);
 
   async function upd(id, statut) {
     setUpdating(true);
     try {
       await sbPatch("demandes", id, { statut });
-      setDemandes(p => p.map(d => d.id===id ? {...d, statut} : d));
-      setSel(prev => prev ? {...prev, statut} : null);
+      setDemandes(p=>p.map(d=>d.id===id?{...d,statut}:d));
+      const demande = demandes.find(d=>d.id===id);
+      const client = clients.find(c=>c.id===demande?.client_id);
+      // Email au client si acceptée ou refusée
+      if (client && (statut==="acceptée"||statut==="refusée")) {
+        const isOk = statut==="acceptée";
+        await sendEmail(
+          "muslum@amonenergy.fr", // en mode test, on envoie à soi-même
+          `${isOk?"✅":"❌"} Votre demande a été ${statut} — UCO Collect`,
+          `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#070c09;color:#e8f5eb;border-radius:12px">
+            <h2 style="color:#39d96a">UCO Collect</h2>
+            <p>Bonjour <strong>${client.nom}</strong>,</p>
+            <p>Votre demande de collecte du <strong>${fmtDate(demande.date_souhaitee)}</strong> a été <strong style="color:${isOk?"#39d96a":"#e05252"}">${statut}</strong>.</p>
+            ${isOk?`<p>Notre collecteur passera le <strong>${fmtDate(demande.date_souhaitee)}</strong> au créneau <strong>${CRENEAUX[demande.creneau]}</strong>.</p>`:"<p>N'hésitez pas à soumettre une nouvelle demande pour une autre date.</p>"}
+            <a href="https://uco-collect.vercel.app" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">Voir dans l'app</a>
+          </div>`
+        );
+      }
+      setSel(prev=>prev?{...prev,statut}:null);
     } finally { setUpdating(false); }
   }
 
@@ -561,42 +632,39 @@ function CollecteurApp({ user, onLogout }) {
           <div className="ubadge" onClick={onLogout}><div className="rdot"/><span>Collecteur</span>{Ic.logout}</div>
         </div>
       </div>
-
       {tab==="home" && (
         <div className="page">
           <p className="ptitle">Tableau de bord</p>
           <p className="psub">Bonjour, {user.nom} 👋</p>
-          {loading && <div style={{textAlign:"center",padding:10}}><span className="spinner"/></div>}
+          {loading&&<div style={{textAlign:"center",padding:10}}><span className="spinner"/></div>}
           <div className="sgrid">
             <div className="sc"><div className="sv" style={{color:G.warn}}>{enAttente.length}</div><div className="sl">En attente</div></div>
             <div className="sc"><div className="sv">{acceptees.length}</div><div className="sl">Planifiées</div></div>
             <div className="sc"><div className="sv">{demandes.filter(d=>d.statut==="collectée").length}</div><div className="sl">Collectées</div></div>
             <div className="sc"><div className="sv">{totalVol}</div><div className="sl">Litres collectés</div></div>
           </div>
-          {enAttente.length>0 && <><p className="stitle">⚡ À traiter</p>{enAttente.map(d=><DCard key={d.id} d={d}/>)}</>}
-          {acceptees.length>0  && <><p className="stitle">📅 Planifiées</p>{acceptees.map(d=><DCard key={d.id} d={d}/>)}</>}
-          {!loading && enAttente.length===0 && acceptees.length===0 && <div className="empty">{Ic.truck}<p>Aucune demande active</p></div>}
+          {enAttente.length>0&&<><p className="stitle">⚡ À traiter</p>{enAttente.map(d=><DCard key={d.id} d={d}/>)}</>}
+          {acceptees.length>0&&<><p className="stitle">📅 Planifiées</p>{acceptees.map(d=><DCard key={d.id} d={d}/>)}</>}
+          {!loading&&enAttente.length===0&&acceptees.length===0&&<div className="empty">{Ic.truck}<p>Aucune demande active</p></div>}
         </div>
       )}
-
       {tab==="demandes" && (
         <div className="page">
           <p className="ptitle">Toutes les demandes</p>
           <p className="psub">{demandes.length} au total</p>
-          {loading && <div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
-          {!loading && demandes.length===0 && <div className="empty">{Ic.list}<p>Aucune demande</p></div>}
-          {!loading && [...enAttente,...acceptees,...demandes.filter(d=>d.statut==="collectée"||d.statut==="refusée")].map(d=><DCard key={d.id} d={d}/>)}
+          {loading&&<div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
+          {!loading&&demandes.length===0&&<div className="empty">{Ic.list}<p>Aucune demande</p></div>}
+          {!loading&&[...enAttente,...acceptees,...demandes.filter(d=>d.statut==="collectée"||d.statut==="refusée")].map(d=><DCard key={d.id} d={d}/>)}
         </div>
       )}
-
       {tab==="clients" && (
         <div className="page">
           <p className="ptitle">Clients</p>
           <p className="psub">{clients.length} établissements inscrits</p>
-          {loading && <div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
-          {!loading && clients.length===0 && <div className="empty">{Ic.user}<p>Aucun client inscrit</p></div>}
-          {!loading && clients.map(c => {
-            const nb = demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length;
+          {loading&&<div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
+          {!loading&&clients.length===0&&<div className="empty">{Ic.user}<p>Aucun client inscrit</p></div>}
+          {!loading&&clients.map(c=>{
+            const nb=demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length;
             return (
               <div className="card" key={c.id}>
                 <div className="ch"><div><div className="ct">{c.nom}</div><div className="cs">{c.secteur}</div></div>
@@ -608,9 +676,7 @@ function CollecteurApp({ user, onLogout }) {
           })}
         </div>
       )}
-
       {tab==="stats" && <StatsTab demandes={demandes} clients={clients} />}
-
       <div className="bnav">
         <button className={`ni ${tab==="home"?"active":""}`} onClick={()=>setTab("home")} style={{position:"relative"}}>
           {Ic.home}{enAttente.length>0&&<span className="nbadge">{enAttente.length}</span>}<span>Dashboard</span>
@@ -619,7 +685,6 @@ function CollecteurApp({ user, onLogout }) {
         <button className={`ni ${tab==="clients"?"active":""}`} onClick={()=>setTab("clients")}>{Ic.user}<span>Clients</span></button>
         <button className={`ni ${tab==="stats"?"active":""}`} onClick={()=>setTab("stats")}>{Ic.chart}<span>Stats</span></button>
       </div>
-
       {sel && (
         <div className="moverlay" onClick={e=>e.target===e.currentTarget&&setSel(null)}>
           <div className="modal">
@@ -632,7 +697,7 @@ function CollecteurApp({ user, onLogout }) {
               <div className="ir">{Ic.loc} {sel.adresse}</div>
               <div className="ir" style={{marginTop:8}}>{Ic.clock} {fmtDate(sel.date_souhaitee)} · {CRENEAUX[sel.creneau]}</div>
               <div className="ir" style={{marginTop:8}}>{Ic.drop} <span className="vpill">{sel.volume_estime} litres estimés</span></div>
-              {sel.remarque && <div className="ir" style={{marginTop:8,alignItems:"flex-start"}}>{Ic.bell} <span>{sel.remarque}</span></div>}
+              {sel.remarque&&<div className="ir" style={{marginTop:8,alignItems:"flex-start"}}>{Ic.bell} <span>{sel.remarque}</span></div>}
             </div>
             {sel.statut==="en_attente" && (
               <div className="ar">
