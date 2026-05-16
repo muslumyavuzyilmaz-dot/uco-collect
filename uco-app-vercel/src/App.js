@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 
-// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
 const SUPA_URL = "https://hhjkawwknbmyjvemcwxq.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoamthd3drbmJteWp2ZW1jd3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NjE4NzUsImV4cCI6MjA5NDIzNzg3NX0.yDAC12BTUXYMSWVN4EhDxpiEQZQn5bTp87IA6LyFKNc";
 
-// ─── HACHAGE MOT DE PASSE ─────────────────────────────────────────────────────
 async function hashPassword(password) {
   const msgBuffer = new TextEncoder().encode(password);
   const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
@@ -42,7 +40,6 @@ async function sbPatch(table, id, body) {
   return r.json();
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
 const G = {
   bg: "#070c09", surface: "#0e1610", card: "#131f16", border: "#1c2e20",
   accent: "#39d96a", accentDark: "#1a7a3a", accentGlow: "rgba(57,217,106,0.15)",
@@ -130,6 +127,12 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .loading-screen .llogo{font-family:'DM Mono',monospace;font-size:32px;color:${G.accent};letter-spacing:-1px}
 .setup-box{background:${G.card};border:1px solid ${G.border};border-radius:16px;padding:20px;margin-top:16px;max-width:380px;width:100%}
 .setup-box pre{font-family:'DM Mono',monospace;font-size:11px;color:${G.accent};white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.stat-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.stat-bar{width:100%;background:${G.accentDark};border-radius:4px 4px 0 0;transition:height .3s}
+.stat-bar-label{font-size:9px;color:${G.textMuted}}
+.stat-bar-val{font-size:10px;font-weight:600;color:${G.accent};font-family:'DM Mono',monospace}
+.progress-track{height:6px;background:${G.border};border-radius:99px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;background:${G.accent};border-radius:99px;transition:width .5s}
 `;
 
 const STATUTS = {
@@ -139,7 +142,7 @@ const STATUTS = {
   refusée:    { label: "Refusée",    cls: "br" },
 };
 const CRENEAUX = { matin: "Matin (8h–12h)", apres_midi: "Après-midi (13h–17h)", flexible: "Flexible" };
-function fmtDate(d) { if (!d) return ""; return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}); }
+function fmtDate(d) { if (!d) return "—"; return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}); }
 
 const Ic = {
   home: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -155,6 +158,7 @@ const Ic = {
   truck: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
   bell: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
   refresh: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
+  chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
 };
 
 function SBadge({ statut }) {
@@ -163,33 +167,23 @@ function SBadge({ statut }) {
 }
 
 const SETUP_SQL = `-- À exécuter dans Supabase > SQL Editor
-
 create table if not exists utilisateurs (
   id uuid primary key default gen_random_uuid(),
   role text not null default 'client',
   nom text not null,
   email text unique not null,
   password text not null,
-  tel text,
-  adresse text,
-  secteur text,
+  tel text, adresse text, secteur text,
   created_at timestamptz default now()
 );
-
 create table if not exists demandes (
   id uuid primary key default gen_random_uuid(),
   client_id uuid references utilisateurs(id),
-  client_nom text,
-  adresse text,
-  date_souhaitee date,
-  creneau text,
-  volume_estime integer,
-  remarque text,
+  client_nom text, adresse text, date_souhaitee date,
+  creneau text, volume_estime integer, remarque text,
   statut text default 'en_attente',
   created_at timestamptz default now()
 );
-
--- Compte collecteur (toi)
 insert into utilisateurs (role, nom, email, password, tel)
 values ('collecteur', 'Muslum', 'muslum@amonenergy.fr', 'admin123', '06 00 00 00 00')
 on conflict (email) do nothing;`;
@@ -201,7 +195,6 @@ function Login({ onLogin }) {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
-
   const up = k => e => setF(p => ({...p, [k]: e.target.value}));
 
   async function login() {
@@ -243,17 +236,12 @@ function Login({ onLogin }) {
           <button className={`tbtn ${mode==="register"?"active":""}`} onClick={()=>{setMode("register");setErr("");setShowSetup(false);}}>S'inscrire</button>
         </div>
         {err && <div className="alert aerr">{err}</div>}
-
         {showSetup && (
           <div className="setup-box">
             <p style={{fontSize:12,color:G.warn,marginBottom:10,fontWeight:600}}>⚠️ Tables manquantes — exécute ce SQL dans Supabase :</p>
             <pre>{SETUP_SQL}</pre>
-            <p style={{fontSize:11,color:G.textMuted,marginTop:10}}>
-              👉 <a href="https://supabase.com/dashboard/project/hhjkawwknbmyjvemcwxq/sql/new" target="_blank" style={{color:G.accent}}>Ouvrir SQL Editor</a>
-            </p>
           </div>
         )}
-
         {!showSetup && mode === "login" && (
           <>
             <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="votre@email.fr" value={f.email} onChange={up("email")} /></div>
@@ -261,7 +249,6 @@ function Login({ onLogin }) {
             <button className="btn bp bfull" onClick={login} disabled={loading}>{loading ? <span className="spinner"/> : "Se connecter"}</button>
           </>
         )}
-
         {!showSetup && mode === "register" && (
           <>
             <div className="fg"><label className="fl">NOM DE L'ÉTABLISSEMENT</label><input className="fi" placeholder="Restaurant du Port" value={f.nom} onChange={up("nom")} /></div>
@@ -278,6 +265,100 @@ function Login({ onLogin }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── STATS TAB ─────────────────────────────────────────────────────────────────
+function StatsTab({ demandes, clients }) {
+  const totalVol = demandes.filter(d=>d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0);
+  const totalCA = (totalVol * 0.5).toFixed(0);
+  const collectees = demandes.filter(d=>d.statut==="collectée").length;
+  const enAttente = demandes.filter(d=>d.statut==="en_attente").length;
+
+  // Volume par mois (6 derniers mois)
+  const now = new Date();
+  const mois = Array.from({length:6}, (_,i) => {
+    const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
+    return { label: d.toLocaleDateString("fr-FR",{month:"short"}), year: d.getFullYear(), month: d.getMonth() };
+  });
+  const volParMois = mois.map(m => {
+    const vol = demandes
+      .filter(d => d.statut==="collectée" && d.date_souhaitee)
+      .filter(d => { const dd = new Date(d.date_souhaitee); return dd.getMonth()===m.month && dd.getFullYear()===m.year; })
+      .reduce((s,d)=>s+(d.volume_estime||0),0);
+    return { ...m, vol };
+  });
+  const maxVol = Math.max(...volParMois.map(m=>m.vol), 1);
+
+  // Top clients
+  const topClients = clients.map(c => ({
+    ...c,
+    vol: demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0),
+    nb: demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length,
+  })).sort((a,b)=>b.vol-a.vol).slice(0,5);
+
+  return (
+    <div className="page">
+      <p className="ptitle">Statistiques</p>
+      <p className="psub">Vue d'ensemble de l'activité</p>
+
+      {/* Métriques */}
+      <div className="sgrid">
+        <div className="sc"><div className="sv">{clients.length}</div><div className="sl">Clients inscrits</div></div>
+        <div className="sc"><div className="sv">{collectees}</div><div className="sl">Collectes réalisées</div></div>
+        <div className="sc"><div className="sv">{totalVol} L</div><div className="sl">Volume total</div></div>
+        <div className="sc"><div className="sv">{totalCA} €</div><div className="sl">CA estimé</div></div>
+      </div>
+
+      {/* Graphique volumes */}
+      <div className="card" style={{marginBottom:16}}>
+        <p className="stitle" style={{margin:"0 0 12px"}}>Volume collecté / mois (L)</p>
+        <div style={{display:"flex",alignItems:"flex-end",gap:8,height:80}}>
+          {volParMois.map((m,i) => (
+            <div key={i} className="stat-bar-wrap">
+              <div className="stat-bar-val">{m.vol>0?m.vol:""}</div>
+              <div className="stat-bar" style={{height: m.vol>0 ? `${Math.round((m.vol/maxVol)*60)+10}px` : "4px", opacity: m.vol>0?1:0.3}}/>
+              <div className="stat-bar-label">{m.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Objectifs */}
+      <div className="card" style={{marginBottom:16}}>
+        <p className="stitle" style={{margin:"0 0 12px"}}>Objectifs</p>
+        {[
+          { label:"Volume collecté", val:totalVol, max:20000, unit:"L" },
+          { label:"Clients actifs", val:clients.length, max:200, unit:"" },
+          { label:"Collectes réalisées", val:collectees, max:150, unit:"" },
+        ].map((o,i) => (
+          <div key={i} style={{marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+              <span style={{color:G.text}}>{o.label}</span>
+              <span style={{color:G.textMuted,fontFamily:"DM Mono"}}>{o.val}{o.unit} / {o.max}{o.unit}</span>
+            </div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{width:`${Math.min((o.val/o.max)*100,100)}%`}}/>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Top clients */}
+      <p className="stitle">Top clients par volume</p>
+      {topClients.length === 0 && <div className="empty">{Ic.drop}<p>Aucune collecte réalisée</p></div>}
+      {topClients.map((c,i) => (
+        <div className="card" key={c.id}>
+          <div className="ch">
+            <div>
+              <div className="ct">{i+1}. {c.nom}</div>
+              <div className="cs">{c.secteur} · {c.nb} collecte{c.nb>1?"s":""}</div>
+            </div>
+            <span className="vpill">{Ic.drop} {c.vol} L</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -301,10 +382,7 @@ function ClientApp({ user, onLogout }) {
   }, [user.id]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const t = setInterval(load, 15000);
-    return () => clearInterval(t);
-  }, [load]);
+  useEffect(() => { const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
 
   async function submit() {
     if (!form.date_souhaitee || !form.volume_estime) return;
@@ -331,7 +409,6 @@ function ClientApp({ user, onLogout }) {
         <div className="logo">UCO_<span>collect</span></div>
         <div className="ubadge" onClick={onLogout}><div className="rdot client"/><span>{user.nom.split(" ")[0]}</span>{Ic.logout}</div>
       </div>
-
       {tab==="home" && (
         <div className="page">
           <p className="ptitle">Bonjour 👋</p>
@@ -358,7 +435,6 @@ function ClientApp({ user, onLogout }) {
           </div>
         </div>
       )}
-
       {tab==="demandes" && (
         <div className="page">
           <p className="ptitle">Mes demandes</p>
@@ -375,7 +451,6 @@ function ClientApp({ user, onLogout }) {
           ))}
         </div>
       )}
-
       {tab==="profil" && (
         <div className="page">
           <p className="ptitle">Mon profil</p>
@@ -391,7 +466,6 @@ function ClientApp({ user, onLogout }) {
           <button className="btn bo2 bfull" onClick={onLogout} style={{marginTop:12}}>{Ic.logout} Se déconnecter</button>
         </div>
       )}
-
       <div className="bnav">
         <button className={`ni ${tab==="home"?"active":""}`} onClick={()=>setTab("home")}>{Ic.home}<span>Accueil</span></button>
         <button className={`ni ${tab==="demandes"?"active":""}`} onClick={()=>setTab("demandes")} style={{position:"relative"}}>
@@ -399,7 +473,6 @@ function ClientApp({ user, onLogout }) {
         </button>
         <button className={`ni ${tab==="profil"?"active":""}`} onClick={()=>setTab("profil")}>{Ic.user}<span>Profil</span></button>
       </div>
-
       {modal && (
         <div className="moverlay" onClick={e=>e.target===e.currentTarget&&setModal(false)}>
           <div className="modal">
@@ -536,12 +609,15 @@ function CollecteurApp({ user, onLogout }) {
         </div>
       )}
 
+      {tab==="stats" && <StatsTab demandes={demandes} clients={clients} />}
+
       <div className="bnav">
         <button className={`ni ${tab==="home"?"active":""}`} onClick={()=>setTab("home")} style={{position:"relative"}}>
           {Ic.home}{enAttente.length>0&&<span className="nbadge">{enAttente.length}</span>}<span>Dashboard</span>
         </button>
         <button className={`ni ${tab==="demandes"?"active":""}`} onClick={()=>setTab("demandes")}>{Ic.list}<span>Demandes</span></button>
         <button className={`ni ${tab==="clients"?"active":""}`} onClick={()=>setTab("clients")}>{Ic.user}<span>Clients</span></button>
+        <button className={`ni ${tab==="stats"?"active":""}`} onClick={()=>setTab("stats")}>{Ic.chart}<span>Stats</span></button>
       </div>
 
       {sel && (
@@ -580,7 +656,6 @@ function CollecteurApp({ user, onLogout }) {
   );
 }
 
-// ── ROOT ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [me, setMe] = useState(null);
   if (!me) return <Login onLogin={setMe} />;
