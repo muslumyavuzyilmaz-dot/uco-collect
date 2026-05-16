@@ -20,6 +20,16 @@ async function sendEmail(to, subject, html) {
   } catch(e) { console.error("Email error:", e); }
 }
 
+async function geocode(adresse, ville, code_postal) {
+  try {
+    const q = encodeURIComponent(`${adresse}, ${code_postal} ${ville}, France`);
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`);
+    const data = await r.json();
+    if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  } catch(e) {}
+  return null;
+}
+
 const headers = {
   "Content-Type": "application/json",
   "apikey": SUPA_KEY,
@@ -139,6 +149,7 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .stat-bar-val{font-size:10px;font-weight:600;color:${G.accent};font-family:'DM Mono',monospace}
 .progress-track{height:6px;background:${G.border};border-radius:99px;overflow:hidden;margin-top:6px}
 .progress-fill{height:100%;background:${G.accent};border-radius:99px;transition:width .5s}
+.map-container{width:100%;height:400px;border-radius:16px;overflow:hidden;border:1px solid ${G.border};margin-bottom:12px}
 `;
 
 const STATUTS = {
@@ -165,6 +176,7 @@ const Ic = {
   bell: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>,
   refresh: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  map: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>,
 };
 
 function SBadge({ statut }) {
@@ -172,29 +184,19 @@ function SBadge({ statut }) {
   return <span className={`badge ${s.cls}`}>{s.label}</span>;
 }
 
-const SETUP_SQL = `-- À exécuter dans Supabase > SQL Editor
-create table if not exists utilisateurs (
+const SETUP_SQL = `create table if not exists utilisateurs (
   id uuid primary key default gen_random_uuid(),
   role text not null default 'client',
   nom text not null, email text unique not null,
-  password text not null, tel text, adresse text, secteur text,
+  password text not null, tel text, adresse text,
+  ville text, code_postal text, secteur text,
   created_at timestamptz default now()
-);
-create table if not exists demandes (
-  id uuid primary key default gen_random_uuid(),
-  client_id uuid references utilisateurs(id),
-  client_nom text, adresse text, date_souhaitee date,
-  creneau text, volume_estime integer, remarque text,
-  statut text default 'en_attente', created_at timestamptz default now()
-);
-insert into utilisateurs (role, nom, email, password, tel)
-values ('collecteur','Muslum','muslum@amonenergy.fr','admin123','06 00 00 00 00')
-on conflict (email) do nothing;`;
+);`;
 
 // ── LOGIN ──────────────────────────────────────────────────────────────────────
 function Login({ onLogin }) {
   const [mode, setMode] = useState("login");
-  const [f, setF] = useState({ email:"", password:"", nom:"", tel:"", adresse:"", secteur:"Restaurant" });
+  const [f, setF] = useState({ email:"", password:"", nom:"", tel:"", adresse:"", ville:"", code_postal:"", secteur:"Restaurant" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
@@ -208,23 +210,24 @@ function Login({ onLogin }) {
       if (!users.length) { setErr("Email ou mot de passe incorrect."); return; }
       onLogin(users[0]);
     } catch(e) {
-      setErr("Erreur de connexion. Vérifie que les tables sont créées.");
-      setShowSetup(true);
+      setErr("Erreur de connexion."); setShowSetup(true);
     } finally { setLoading(false); }
   }
 
   async function register() {
-    if (!f.nom||!f.email||!f.password||!f.tel||!f.adresse) return setErr("Tous les champs sont obligatoires.");
+    if (!f.nom||!f.email||!f.password||!f.tel||!f.adresse||!f.ville||!f.code_postal) return setErr("Tous les champs sont obligatoires.");
     setLoading(true); setErr("");
     try {
       const existing = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(f.email)}&limit=1`);
       if (existing.length) { setErr("Email déjà utilisé."); return; }
       const hashed = await hashPassword(f.password);
-      const [u] = await sbPost("utilisateurs", { role:"client", nom:f.nom, email:f.email, password:hashed, tel:f.tel, adresse:f.adresse, secteur:f.secteur });
+      const [u] = await sbPost("utilisateurs", {
+        role:"client", nom:f.nom, email:f.email, password:hashed,
+        tel:f.tel, adresse:f.adresse, ville:f.ville, code_postal:f.code_postal, secteur:f.secteur
+      });
       onLogin(u);
     } catch(e) {
-      setErr("Erreur. Vérifie que les tables sont créées.");
-      setShowSetup(true);
+      setErr("Erreur. Vérifie que les tables sont créées."); setShowSetup(true);
     } finally { setLoading(false); }
   }
 
@@ -239,7 +242,7 @@ function Login({ onLogin }) {
           <button className={`tbtn ${mode==="register"?"active":""}`} onClick={()=>{setMode("register");setErr("");setShowSetup(false);}}>S'inscrire</button>
         </div>
         {err && <div className="alert aerr">{err}</div>}
-        {showSetup && <div className="setup-box"><p style={{fontSize:12,color:G.warn,marginBottom:10,fontWeight:600}}>⚠️ Tables manquantes</p><pre>{SETUP_SQL}</pre></div>}
+        {showSetup && <div className="setup-box"><pre>{SETUP_SQL}</pre></div>}
         {!showSetup && mode === "login" && (
           <>
             <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="votre@email.fr" value={f.email} onChange={up("email")} /></div>
@@ -254,7 +257,9 @@ function Login({ onLogin }) {
             <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="contact@restaurant.fr" value={f.email} onChange={up("email")} /></div>
             <div className="fg"><label className="fl">MOT DE PASSE</label><input className="fi" type="password" placeholder="••••••••" value={f.password} onChange={up("password")} /></div>
             <div className="fg"><label className="fl">TÉLÉPHONE</label><input className="fi" placeholder="06 XX XX XX XX" value={f.tel} onChange={up("tel")} /></div>
-            <div className="fg"><label className="fl">ADRESSE</label><input className="fi" placeholder="12 Rue Bannier, Orléans" value={f.adresse} onChange={up("adresse")} /></div>
+            <div className="fg"><label className="fl">ADRESSE</label><input className="fi" placeholder="12 Rue Bannier" value={f.adresse} onChange={up("adresse")} /></div>
+            <div className="fg"><label className="fl">CODE POSTAL</label><input className="fi" placeholder="45000" value={f.code_postal} onChange={up("code_postal")} /></div>
+            <div className="fg"><label className="fl">VILLE</label><input className="fi" placeholder="Orléans" value={f.ville} onChange={up("ville")} /></div>
             <div className="fg"><label className="fl">TYPE D'ÉTABLISSEMENT</label>
               <select className="fsel" value={f.secteur} onChange={up("secteur")}>
                 {["Restaurant","Hôtel","Collectivité","Traiteur","Boulangerie","Autre"].map(s=><option key={s}>{s}</option>)}
@@ -285,15 +290,12 @@ function ForgotPassword({ onBack }) {
       const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
       await sbPatch("utilisateurs", users[0].id, { reset_token: token });
       const resetLink = `${window.location.origin}?reset=${token}`;
-      await sendEmail(
-        email,
-        "Réinitialisation de votre mot de passe UCO Collect",
+      await sendEmail(email, "Réinitialisation de votre mot de passe UCO Collect",
         `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px">
           <h2 style="color:#39d96a">UCO Collect</h2>
-          <p>Bonjour,</p>
-          <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+          <p>Bonjour, vous avez demandé la réinitialisation de votre mot de passe.</p>
           <a href="${resetLink}" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:20px 0">Réinitialiser mon mot de passe</a>
-          <p style="color:#666;font-size:12px">Ce lien expire dans 1 heure. Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+          <p style="color:#666;font-size:12px">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
         </div>`
       );
       setSent(true);
@@ -317,6 +319,84 @@ function ForgotPassword({ onBack }) {
         <button className="btn bo2" style={{flex:1}} onClick={onBack}>Retour</button>
         <button className="btn bp" style={{flex:2}} onClick={send} disabled={loading}>{loading?<span className="spinner"/>:"Envoyer le lien"}</button>
       </div>
+    </div>
+  );
+}
+
+// ── CARTE TAB ─────────────────────────────────────────────────────────────────
+function CarteTab({ clients, demandes }) {
+  const [markers, setMarkers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const mapRef = useState(null);
+
+  useEffect(() => {
+    async function loadMap() {
+      // Charger Leaflet dynamiquement
+      if (!window.L) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+        document.head.appendChild(link);
+        await new Promise(resolve => {
+          const script = document.createElement("script");
+          script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+
+      // Géocoder les clients
+      const results = [];
+      for (const c of clients) {
+        if (c.adresse && c.ville && c.code_postal) {
+          const coords = await geocode(c.adresse, c.ville, c.code_postal);
+          if (coords) results.push({ ...c, ...coords });
+        }
+      }
+      setMarkers(results);
+      setLoading(false);
+
+      // Initialiser la carte
+      const mapEl = document.getElementById("leaflet-map");
+      if (!mapEl || mapEl._leaflet_id) return;
+      const map = window.L.map("leaflet-map").setView([47.9029, 1.9093], 10);
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap"
+      }).addTo(map);
+
+      const icon = window.L.divIcon({
+        html: `<div style="background:#39d96a;width:12px;height:12px;border-radius:50%;border:2px solid #070c09;box-shadow:0 0 6px #39d96a"></div>`,
+        className: "", iconSize: [12, 12], iconAnchor: [6, 6],
+      });
+
+      results.forEach(c => {
+        const nb = demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length;
+        window.L.marker([c.lat, c.lng], { icon })
+          .addTo(map)
+          .bindPopup(`<b>${c.nom}</b><br>${c.adresse}<br>${c.code_postal} ${c.ville}<br>${c.secteur}<br>${nb} collecte${nb>1?"s":""}`);
+      });
+    }
+    loadMap();
+  }, [clients]);
+
+  return (
+    <div className="page">
+      <p className="ptitle">Carte des clients</p>
+      <p className="psub">{clients.length} établissements</p>
+      {loading && <div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
+      <div id="leaflet-map" className="map-container" style={{display:loading?"none":"block"}}/>
+      {!loading && markers.length === 0 && (
+        <div className="empty">{Ic.map}<p>Aucun client géolocalisable pour l'instant</p></div>
+      )}
+      {!loading && markers.map(c => (
+        <div className="card" key={c.id}>
+          <div className="ch">
+            <div><div className="ct">{c.nom}</div><div className="cs">{c.secteur}</div></div>
+            <span className="vpill">{Ic.loc} {c.ville}</span>
+          </div>
+          <div className="ir">{Ic.loc} {c.adresse}, {c.code_postal} {c.ville}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -424,30 +504,24 @@ function ClientApp({ user, onLogout }) {
     if (!form.date_souhaitee||!form.volume_estime) return;
     setSubmitting(true);
     try {
+      const adresseComplete = `${user.adresse}${user.ville?", "+user.ville:""}${user.code_postal?" "+user.code_postal:""}`;
       const [d] = await sbPost("demandes", {
-        client_id:user.id, client_nom:user.nom, adresse:user.adresse,
+        client_id:user.id, client_nom:user.nom, adresse:adresseComplete,
         date_souhaitee:form.date_souhaitee, creneau:form.creneau,
         volume_estime:parseInt(form.volume_estime), remarque:form.remarque, statut:"en_attente",
       });
       setDemandes(p=>[d,...p]);
       setForm({date_souhaitee:"",creneau:"matin",volume_estime:"",remarque:""});
       setModal(false); setOk(true); setTimeout(()=>setOk(false),3000);
-      // Email notification au collecteur
-      await sendEmail(
-        "muslum@amonenergy.fr",
-        `🛢️ Nouvelle demande de collecte — ${user.nom}`,
-        `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#070c09;color:#e8f5eb;border-radius:12px">
-          <h2 style="color:#39d96a;margin-bottom:4px">UCO Collect</h2>
-          <p style="color:#6b8f72;margin-bottom:20px">Nouvelle demande de collecte</p>
-          <div style="background:#131f16;border:1px solid #1c2e20;border-radius:10px;padding:16px;margin-bottom:16px">
-            <p><strong>Client :</strong> ${user.nom}</p>
-            <p><strong>Adresse :</strong> ${user.adresse}</p>
-            <p><strong>Date souhaitée :</strong> ${form.date_souhaitee}</p>
-            <p><strong>Créneau :</strong> ${form.creneau}</p>
-            <p><strong>Volume estimé :</strong> ${form.volume_estime} L</p>
-            ${form.remarque?`<p><strong>Remarque :</strong> ${form.remarque}</p>`:""}
-          </div>
-          <a href="https://uco-collect.vercel.app" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Voir dans l'app</a>
+      await sendEmail("muslum@amonenergy.fr", `🛢️ Nouvelle demande — ${user.nom}`,
+        `<div style="font-family:sans-serif;padding:30px;background:#070c09;color:#e8f5eb;border-radius:12px">
+          <h2 style="color:#39d96a">UCO Collect</h2>
+          <p><b>Client :</b> ${user.nom}</p>
+          <p><b>Adresse :</b> ${adresseComplete}</p>
+          <p><b>Date :</b> ${form.date_souhaitee} · ${form.creneau}</p>
+          <p><b>Volume :</b> ${form.volume_estime} L</p>
+          ${form.remarque?`<p><b>Remarque :</b> ${form.remarque}</p>`:""}
+          <a href="https://uco-collect.vercel.app" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">Voir dans l'app</a>
         </div>`
       );
     } finally { setSubmitting(false); }
@@ -511,7 +585,7 @@ function ClientApp({ user, onLogout }) {
           <p className="psub">Informations de l'établissement</p>
           <div className="card">
             <div style={{fontSize:15,fontWeight:600,marginBottom:12}}>{user.nom}</div>
-            <div className="ir">{Ic.loc} {user.adresse}</div>
+            <div className="ir">{Ic.loc} {user.adresse}{user.ville?`, ${user.ville}`:""}{user.code_postal?` ${user.code_postal}`:""}</div>
             <div className="ir" style={{marginTop:6}}>{Ic.user} {user.tel}</div>
             <div className="ir" style={{marginTop:6}}>{Ic.bell} {user.email}</div>
             <div className="div"/>
@@ -540,7 +614,6 @@ function ClientApp({ user, onLogout }) {
             </div>
             <div className="fg"><label className="fl">VOLUME ESTIMÉ (litres)</label><input className="fi" type="number" placeholder="Ex: 40" value={form.volume_estime} onChange={up("volume_estime")} /></div>
             <div className="fg"><label className="fl">REMARQUE (optionnel)</label><textarea className="fta" placeholder="Accès, type de contenant..." value={form.remarque} onChange={up("remarque")} /></div>
-            <div className="ir" style={{marginBottom:16}}>{Ic.loc} {user.adresse}</div>
             <div className="ar">
               <button className="btn bo2" style={{flex:1}} onClick={()=>setModal(false)}>Annuler</button>
               <button className="btn bp" style={{flex:2}} onClick={submit} disabled={submitting}>{submitting?<span className="spinner"/>:"Envoyer la demande"}</button>
@@ -582,17 +655,15 @@ function CollecteurApp({ user, onLogout }) {
       setDemandes(p=>p.map(d=>d.id===id?{...d,statut}:d));
       const demande = demandes.find(d=>d.id===id);
       const client = clients.find(c=>c.id===demande?.client_id);
-      // Email au client si acceptée ou refusée
       if (client && (statut==="acceptée"||statut==="refusée")) {
         const isOk = statut==="acceptée";
-        await sendEmail(
-          "muslum@amonenergy.fr", // en mode test, on envoie à soi-même
-          `${isOk?"✅":"❌"} Votre demande a été ${statut} — UCO Collect`,
-          `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#070c09;color:#e8f5eb;border-radius:12px">
+        await sendEmail("muslum@amonenergy.fr",
+          `${isOk?"✅":"❌"} Demande ${statut} — ${client.nom}`,
+          `<div style="font-family:sans-serif;padding:30px;background:#070c09;color:#e8f5eb;border-radius:12px">
             <h2 style="color:#39d96a">UCO Collect</h2>
-            <p>Bonjour <strong>${client.nom}</strong>,</p>
-            <p>Votre demande de collecte du <strong>${fmtDate(demande.date_souhaitee)}</strong> a été <strong style="color:${isOk?"#39d96a":"#e05252"}">${statut}</strong>.</p>
-            ${isOk?`<p>Notre collecteur passera le <strong>${fmtDate(demande.date_souhaitee)}</strong> au créneau <strong>${CRENEAUX[demande.creneau]}</strong>.</p>`:"<p>N'hésitez pas à soumettre une nouvelle demande pour une autre date.</p>"}
+            <p>Bonjour <b>${client.nom}</b>,</p>
+            <p>Votre demande du <b>${fmtDate(demande.date_souhaitee)}</b> a été <b style="color:${isOk?"#39d96a":"#e05252"}">${statut}</b>.</p>
+            ${isOk?`<p>Nous passerons le <b>${fmtDate(demande.date_souhaitee)}</b> · ${CRENEAUX[demande.creneau]}.</p>`:"<p>N'hésitez pas à soumettre une nouvelle demande.</p>"}
             <a href="https://uco-collect.vercel.app" style="display:inline-block;background:#39d96a;color:#070c09;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:16px">Voir dans l'app</a>
           </div>`
         );
@@ -669,7 +740,7 @@ function CollecteurApp({ user, onLogout }) {
               <div className="card" key={c.id}>
                 <div className="ch"><div><div className="ct">{c.nom}</div><div className="cs">{c.secteur}</div></div>
                   <span className="badge bo">{nb} collecte{nb>1?"s":""}</span></div>
-                <div className="ir">{Ic.loc} {c.adresse}</div>
+                <div className="ir">{Ic.loc} {c.adresse}{c.ville?`, ${c.ville}`:""}</div>
                 <div className="ir" style={{marginTop:4}}>{Ic.user} {c.tel}</div>
               </div>
             );
@@ -677,6 +748,7 @@ function CollecteurApp({ user, onLogout }) {
         </div>
       )}
       {tab==="stats" && <StatsTab demandes={demandes} clients={clients} />}
+      {tab==="carte" && <CarteTab clients={clients} demandes={demandes} />}
       <div className="bnav">
         <button className={`ni ${tab==="home"?"active":""}`} onClick={()=>setTab("home")} style={{position:"relative"}}>
           {Ic.home}{enAttente.length>0&&<span className="nbadge">{enAttente.length}</span>}<span>Dashboard</span>
@@ -684,6 +756,7 @@ function CollecteurApp({ user, onLogout }) {
         <button className={`ni ${tab==="demandes"?"active":""}`} onClick={()=>setTab("demandes")}>{Ic.list}<span>Demandes</span></button>
         <button className={`ni ${tab==="clients"?"active":""}`} onClick={()=>setTab("clients")}>{Ic.user}<span>Clients</span></button>
         <button className={`ni ${tab==="stats"?"active":""}`} onClick={()=>setTab("stats")}>{Ic.chart}<span>Stats</span></button>
+        <button className={`ni ${tab==="carte"?"active":""}`} onClick={()=>setTab("carte")}>{Ic.map}<span>Carte</span></button>
       </div>
       {sel && (
         <div className="moverlay" onClick={e=>e.target===e.currentTarget&&setSel(null)}>
