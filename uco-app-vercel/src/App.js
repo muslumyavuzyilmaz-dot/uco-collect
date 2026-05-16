@@ -359,7 +359,8 @@ function CarteTab({ clients, demandes }) {
       // Initialiser la carte
       const mapEl = document.getElementById("leaflet-map");
       if (!mapEl || mapEl._leaflet_id) return;
-      const map = window.L.map("leaflet-map").setView([47.9029, 1.9093], 10);
+    const map = window.L.map("leaflet-map", {zoomControl:true}).setView([47.9029, 1.9093], 10);
+setTimeout(() => map.invalidateSize(), 300);
       window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap"
       }).addTo(map);
