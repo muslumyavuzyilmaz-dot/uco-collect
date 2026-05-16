@@ -150,6 +150,14 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .progress-track{height:6px;background:${G.border};border-radius:99px;overflow:hidden;margin-top:6px}
 .progress-fill{height:100%;background:${G.accent};border-radius:99px;transition:width .5s}
 .map-container{width:100%;height:400px;border-radius:16px;overflow:hidden;border:1px solid ${G.border};margin-bottom:12px}
+.legal-page{padding:20px 20px 100px;max-height:100vh;overflow-y:auto}
+.legal-page h2{font-size:18px;font-weight:700;color:${G.accent};margin:20px 0 8px}
+.legal-page h3{font-size:14px;font-weight:600;margin:16px 0 6px}
+.legal-page p{font-size:13px;color:${G.textMuted};line-height:1.6;margin-bottom:8px}
+.checkbox-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;cursor:pointer}
+.checkbox-row input{margin-top:3px;accent-color:${G.accent};width:16px;height:16px;flex-shrink:0}
+.checkbox-row span{font-size:12px;color:${G.textMuted};line-height:1.5}
+.checkbox-row a{color:${G.accent};text-decoration:none}
 `;
 
 const STATUTS = {
@@ -177,6 +185,7 @@ const Ic = {
   refresh: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   map: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>,
+  shield: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
 };
 
 function SBadge({ statut }) {
@@ -184,14 +193,96 @@ function SBadge({ statut }) {
   return <span className={`badge ${s.cls}`}>{s.label}</span>;
 }
 
-const SETUP_SQL = `create table if not exists utilisateurs (
-  id uuid primary key default gen_random_uuid(),
-  role text not null default 'client',
-  nom text not null, email text unique not null,
-  password text not null, tel text, adresse text,
-  ville text, code_postal text, secteur text,
-  created_at timestamptz default now()
-);`;
+// ── PAGES LÉGALES ─────────────────────────────────────────────────────────────
+function CGUPage({ onBack }) {
+  return (
+    <div className="lscreen" style={{justifyContent:"flex-start",paddingTop:20}}>
+      <style>{css}</style>
+      <div style={{width:"100%",maxWidth:430}}>
+        <button className="btn bo2 bsm" onClick={onBack} style={{marginBottom:16}}>← Retour</button>
+        <div className="legal-page">
+          <div className="llogo" style={{fontSize:22}}>UCO_</div>
+          <h2>Conditions Générales d'Utilisation</h2>
+          <p>Dernière mise à jour : {new Date().toLocaleDateString("fr-FR")}</p>
+
+          <h3>1. Objet</h3>
+          <p>Les présentes CGU régissent l'utilisation de l'application UCO Collect, éditée par Amon Energy (Turkey Amon Enerji), pour la gestion de la collecte d'huiles usagées dans le département du Loiret (France).</p>
+
+          <h3>2. Accès au service</h3>
+          <p>L'accès à UCO Collect est réservé aux établissements professionnels (restaurants, hôtels, collectivités, etc.) situés dans le Loiret. L'inscription est gratuite et nécessite la création d'un compte avec des informations valides.</p>
+
+          <h3>3. Utilisation du service</h3>
+          <p>L'utilisateur s'engage à fournir des informations exactes lors de son inscription et à utiliser l'application uniquement pour des demandes de collecte d'huiles usagées légitimes. Toute utilisation abusive pourra entraîner la suppression du compte.</p>
+
+          <h3>4. Responsabilités</h3>
+          <p>Amon Energy s'engage à traiter les demandes dans les meilleurs délais. L'acceptation d'une demande ne constitue pas un engagement contractuel ferme et reste soumise aux disponibilités du collecteur.</p>
+
+          <h3>5. Propriété intellectuelle</h3>
+          <p>L'application UCO Collect et tous ses contenus sont la propriété exclusive d'Amon Energy. Toute reproduction est interdite sans autorisation écrite.</p>
+
+          <h3>6. Modification des CGU</h3>
+          <p>Amon Energy se réserve le droit de modifier les présentes CGU à tout moment. Les utilisateurs seront informés par email de toute modification substantielle.</p>
+
+          <h3>7. Droit applicable</h3>
+          <p>Les présentes CGU sont soumises au droit français. Tout litige sera soumis aux tribunaux compétents français.</p>
+
+          <h3>8. Contact</h3>
+          <p>Pour toute question : contact@amonenergy.fr</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RGPDPage({ onBack }) {
+  return (
+    <div className="lscreen" style={{justifyContent:"flex-start",paddingTop:20}}>
+      <style>{css}</style>
+      <div style={{width:"100%",maxWidth:430}}>
+        <button className="btn bo2 bsm" onClick={onBack} style={{marginBottom:16}}>← Retour</button>
+        <div className="legal-page">
+          <div className="llogo" style={{fontSize:22}}>UCO_</div>
+          <h2>Politique de Confidentialité & RGPD</h2>
+          <p>Dernière mise à jour : {new Date().toLocaleDateString("fr-FR")}</p>
+
+          <h3>1. Responsable du traitement</h3>
+          <p>Amon Energy (Turkey Amon Enerji)<br/>Email : contact@amonenergy.fr</p>
+
+          <h3>2. Données collectées</h3>
+          <p>Nous collectons les données suivantes lors de votre inscription :</p>
+          <p>• Nom de l'établissement<br/>• Adresse postale complète<br/>• Email professionnel<br/>• Numéro de téléphone<br/>• Type d'établissement</p>
+
+          <h3>3. Finalités du traitement</h3>
+          <p>Vos données sont utilisées exclusivement pour :</p>
+          <p>• Gérer vos demandes de collecte d'huiles usagées<br/>• Vous envoyer des notifications liées à vos demandes<br/>• Planifier les tournées de collecte</p>
+
+          <h3>4. Base légale</h3>
+          <p>Le traitement est fondé sur l'exécution d'un contrat de service (Article 6.1.b du RGPD) et votre consentement explicite (Article 6.1.a du RGPD).</p>
+
+          <h3>5. Durée de conservation</h3>
+          <p>Vos données sont conservées pendant toute la durée de votre relation avec Amon Energy, et supprimées dans un délai de 3 ans après votre dernière activité.</p>
+
+          <h3>6. Vos droits</h3>
+          <p>Conformément au RGPD, vous disposez des droits suivants :</p>
+          <p>• Droit d'accès à vos données<br/>• Droit de rectification<br/>• Droit à l'effacement ("droit à l'oubli")<br/>• Droit à la portabilité<br/>• Droit d'opposition</p>
+          <p>Pour exercer ces droits : contact@amonenergy.fr</p>
+
+          <h3>7. Sécurité</h3>
+          <p>Vos données sont stockées de manière sécurisée sur les serveurs Supabase (UE - Frankfurt), conformément aux exigences du RGPD. Les mots de passe sont hashés et jamais stockés en clair.</p>
+
+          <h3>8. Cookies</h3>
+          <p>UCO Collect n'utilise pas de cookies de tracking. Seuls des cookies techniques nécessaires au fonctionnement de l'application sont utilisés.</p>
+
+          <h3>9. Transfert de données</h3>
+          <p>Vos données sont hébergées dans l'Union Européenne (Frankfurt, Allemagne) et ne sont pas transférées en dehors de l'UE.</p>
+
+          <h3>10. Contact DPO</h3>
+          <p>Pour toute question relative à vos données personnelles : contact@amonenergy.fr</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── LOGIN ──────────────────────────────────────────────────────────────────────
 function Login({ onLogin }) {
@@ -199,7 +290,7 @@ function Login({ onLogin }) {
   const [f, setF] = useState({ email:"", password:"", nom:"", tel:"", adresse:"", ville:"", code_postal:"", secteur:"Restaurant" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showSetup, setShowSetup] = useState(false);
+  const [cgu, setCgu] = useState(false);
   const up = k => e => setF(p => ({...p, [k]: e.target.value}));
 
   async function login() {
@@ -210,12 +301,13 @@ function Login({ onLogin }) {
       if (!users.length) { setErr("Email ou mot de passe incorrect."); return; }
       onLogin(users[0]);
     } catch(e) {
-      setErr("Erreur de connexion."); setShowSetup(true);
+      setErr("Erreur de connexion.");
     } finally { setLoading(false); }
   }
 
   async function register() {
     if (!f.nom||!f.email||!f.password||!f.tel||!f.adresse||!f.ville||!f.code_postal) return setErr("Tous les champs sont obligatoires.");
+    if (!cgu) return setErr("Vous devez accepter les CGU et la politique de confidentialité.");
     setLoading(true); setErr("");
     try {
       const existing = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(f.email)}&limit=1`);
@@ -227,9 +319,22 @@ function Login({ onLogin }) {
       });
       onLogin(u);
     } catch(e) {
-      setErr("Erreur. Vérifie que les tables sont créées."); setShowSetup(true);
+      setErr("Erreur. Réessaie.");
     } finally { setLoading(false); }
   }
+
+  if (mode === "cgu") return <CGUPage onBack={()=>setMode("register")} />;
+  if (mode === "rgpd") return <RGPDPage onBack={()=>setMode("register")} />;
+  if (mode === "forgot") return (
+    <div className="lscreen">
+      <style>{css}</style>
+      <div className="llogo">UCO_</div>
+      <p className="ltag">Collecte d'huiles usagées · Loiret</p>
+      <div className="lcard">
+        <ForgotPassword onBack={()=>setMode("login")} />
+      </div>
+    </div>
+  );
 
   return (
     <div className="lscreen">
@@ -238,12 +343,11 @@ function Login({ onLogin }) {
       <p className="ltag">Collecte d'huiles usagées · Loiret</p>
       <div className="lcard">
         <div className="tsw">
-          <button className={`tbtn ${mode==="login"?"active":""}`} onClick={()=>{setMode("login");setErr("");setShowSetup(false);}}>Connexion</button>
-          <button className={`tbtn ${mode==="register"?"active":""}`} onClick={()=>{setMode("register");setErr("");setShowSetup(false);}}>S'inscrire</button>
+          <button className={`tbtn ${mode==="login"?"active":""}`} onClick={()=>{setMode("login");setErr("");}}>Connexion</button>
+          <button className={`tbtn ${mode==="register"?"active":""}`} onClick={()=>{setMode("register");setErr("");}}>S'inscrire</button>
         </div>
         {err && <div className="alert aerr">{err}</div>}
-        {showSetup && <div className="setup-box"><pre>{SETUP_SQL}</pre></div>}
-        {!showSetup && mode === "login" && (
+        {mode === "login" && (
           <>
             <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="votre@email.fr" value={f.email} onChange={up("email")} /></div>
             <div className="fg"><label className="fl">MOT DE PASSE</label><input className="fi" type="password" placeholder="••••••••" value={f.password} onChange={up("password")} onKeyDown={e=>e.key==="Enter"&&login()} /></div>
@@ -251,7 +355,7 @@ function Login({ onLogin }) {
             <p style={{textAlign:"center",marginTop:12,fontSize:12,color:G.textMuted,cursor:"pointer"}} onClick={()=>setMode("forgot")}>Mot de passe oublié ?</p>
           </>
         )}
-        {!showSetup && mode === "register" && (
+        {mode === "register" && (
           <>
             <div className="fg"><label className="fl">NOM DE L'ÉTABLISSEMENT</label><input className="fi" placeholder="Restaurant du Port" value={f.nom} onChange={up("nom")} /></div>
             <div className="fg"><label className="fl">EMAIL</label><input className="fi" type="email" placeholder="contact@restaurant.fr" value={f.email} onChange={up("email")} /></div>
@@ -265,10 +369,13 @@ function Login({ onLogin }) {
                 {["Restaurant","Hôtel","Collectivité","Traiteur","Boulangerie","Autre"].map(s=><option key={s}>{s}</option>)}
               </select>
             </div>
-            <button className="btn bp bfull" onClick={register} disabled={loading}>{loading?<span className="spinner"/>:"Créer mon compte"}</button>
+            <label className="checkbox-row">
+              <input type="checkbox" checked={cgu} onChange={e=>setCgu(e.target.checked)} />
+              <span>J'accepte les <a onClick={()=>setMode("cgu")}>Conditions Générales d'Utilisation</a> et la <a onClick={()=>setMode("rgpd")}>Politique de Confidentialité</a> d'Amon Energy. Je consens au traitement de mes données personnelles conformément au RGPD.</span>
+            </label>
+            <button className="btn bp bfull" onClick={register} disabled={loading||!cgu}>{loading?<span className="spinner"/>:"Créer mon compte"}</button>
           </>
         )}
-        {mode === "forgot" && <ForgotPassword onBack={()=>setMode("login")} />}
       </div>
     </div>
   );
@@ -327,11 +434,9 @@ function ForgotPassword({ onBack }) {
 function CarteTab({ clients, demandes }) {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const mapRef = useState(null);
 
   useEffect(() => {
     async function loadMap() {
-      // Charger Leaflet dynamiquement
       if (!window.L) {
         const link = document.createElement("link");
         link.rel = "stylesheet";
@@ -344,8 +449,6 @@ function CarteTab({ clients, demandes }) {
           document.head.appendChild(script);
         });
       }
-
-      // Géocoder les clients
       const results = [];
       for (const c of clients) {
         if (c.adresse && c.ville && c.code_postal) {
@@ -355,21 +458,17 @@ function CarteTab({ clients, demandes }) {
       }
       setMarkers(results);
       setLoading(false);
-
-      // Initialiser la carte
       const mapEl = document.getElementById("leaflet-map");
       if (!mapEl || mapEl._leaflet_id) return;
-    const map = window.L.map("leaflet-map", {zoomControl:true}).setView([47.9029, 1.9093], 10);
-setTimeout(() => map.invalidateSize(), 300);
+      const map = window.L.map("leaflet-map", {zoomControl:true}).setView([47.9029, 1.9093], 10);
+      setTimeout(() => map.invalidateSize(), 300);
       window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap"
       }).addTo(map);
-
       const icon = window.L.divIcon({
         html: `<div style="background:#39d96a;width:12px;height:12px;border-radius:50%;border:2px solid #070c09;box-shadow:0 0 6px #39d96a"></div>`,
         className: "", iconSize: [12, 12], iconAnchor: [6, 6],
       });
-
       results.forEach(c => {
         const nb = demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length;
         window.L.marker([c.lat, c.lng], { icon })
@@ -386,9 +485,7 @@ setTimeout(() => map.invalidateSize(), 300);
       <p className="psub">{clients.length} établissements</p>
       {loading && <div style={{textAlign:"center",padding:20}}><span className="spinner"/></div>}
       <div id="leaflet-map" className="map-container" style={{display:loading?"none":"block"}}/>
-      {!loading && markers.length === 0 && (
-        <div className="empty">{Ic.map}<p>Aucun client géolocalisable pour l'instant</p></div>
-      )}
+      {!loading && markers.length === 0 && <div className="empty">{Ic.map}<p>Aucun client géolocalisable</p></div>}
       {!loading && markers.map(c => (
         <div className="card" key={c.id}>
           <div className="ch">
@@ -407,21 +504,18 @@ function StatsTab({ demandes, clients }) {
   const totalVol = demandes.filter(d=>d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0);
   const totalCA = (totalVol * 0.5).toFixed(0);
   const collectees = demandes.filter(d=>d.statut==="collectée").length;
-
   const now = new Date();
   const mois = Array.from({length:6}, (_,i) => {
     const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
     return { label: d.toLocaleDateString("fr-FR",{month:"short"}), year: d.getFullYear(), month: d.getMonth() };
   });
   const volParMois = mois.map(m => {
-    const vol = demandes
-      .filter(d=>d.statut==="collectée"&&d.date_souhaitee)
+    const vol = demandes.filter(d=>d.statut==="collectée"&&d.date_souhaitee)
       .filter(d=>{ const dd=new Date(d.date_souhaitee); return dd.getMonth()===m.month&&dd.getFullYear()===m.year; })
       .reduce((s,d)=>s+(d.volume_estime||0),0);
     return {...m, vol};
   });
   const maxVol = Math.max(...volParMois.map(m=>m.vol), 1);
-
   const topClients = clients.map(c=>({
     ...c,
     vol: demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0),
@@ -489,6 +583,7 @@ function ClientApp({ user, onLogout }) {
   const [ok, setOk] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [legalPage, setLegalPage] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -500,6 +595,9 @@ function ClientApp({ user, onLogout }) {
 
   useEffect(()=>{load();},[load]);
   useEffect(()=>{const t=setInterval(load,15000);return()=>clearInterval(t);},[load]);
+
+  if (legalPage === "cgu") return <CGUPage onBack={()=>setLegalPage(null)} />;
+  if (legalPage === "rgpd") return <RGPDPage onBack={()=>setLegalPage(null)} />;
 
   async function submit() {
     if (!form.date_souhaitee||!form.volume_estime) return;
@@ -592,6 +690,11 @@ function ClientApp({ user, onLogout }) {
             <div className="div"/>
             <span className="badge bo">{user.secteur}</span>
           </div>
+          <div className="card" style={{marginTop:8}}>
+            <p className="stitle" style={{margin:"0 0 10px"}}>Informations légales</p>
+            <button className="btn bo2 bfull bsm" style={{marginBottom:8}} onClick={()=>setLegalPage("cgu")}>📄 Conditions d'utilisation</button>
+            <button className="btn bo2 bfull bsm" onClick={()=>setLegalPage("rgpd")}>{Ic.shield} Politique de confidentialité & RGPD</button>
+          </div>
           <button className="btn bo2 bfull" onClick={onLogout} style={{marginTop:12}}>{Ic.logout} Se déconnecter</button>
         </div>
       )}
@@ -634,6 +737,7 @@ function CollecteurApp({ user, onLogout }) {
   const [sel, setSel] = useState(null);
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [legalPage, setLegalPage] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -648,6 +752,9 @@ function CollecteurApp({ user, onLogout }) {
 
   useEffect(()=>{load();},[load]);
   useEffect(()=>{const t=setInterval(load,10000);return()=>clearInterval(t);},[load]);
+
+  if (legalPage === "cgu") return <CGUPage onBack={()=>setLegalPage(null)} />;
+  if (legalPage === "rgpd") return <RGPDPage onBack={()=>setLegalPage(null)} />;
 
   async function upd(id, statut) {
     setUpdating(true);
@@ -750,6 +857,14 @@ function CollecteurApp({ user, onLogout }) {
       )}
       {tab==="stats" && <StatsTab demandes={demandes} clients={clients} />}
       {tab==="carte" && <CarteTab clients={clients} demandes={demandes} />}
+      {tab==="legal" && (
+        <div className="page">
+          <p className="ptitle">Informations légales</p>
+          <p className="psub">Amon Energy · UCO Collect</p>
+          <button className="btn bo2 bfull" style={{marginBottom:12}} onClick={()=>setLegalPage("cgu")}>📄 Conditions Générales d'Utilisation</button>
+          <button className="btn bo2 bfull" onClick={()=>setLegalPage("rgpd")}>{Ic.shield} Politique de Confidentialité & RGPD</button>
+        </div>
+      )}
       <div className="bnav">
         <button className={`ni ${tab==="home"?"active":""}`} onClick={()=>setTab("home")} style={{position:"relative"}}>
           {Ic.home}{enAttente.length>0&&<span className="nbadge">{enAttente.length}</span>}<span>Dashboard</span>
