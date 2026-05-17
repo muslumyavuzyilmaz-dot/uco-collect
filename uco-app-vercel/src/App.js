@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const SUPA_URL = "https://hhjkawwknbmyjvemcwxq.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhoamthd3drbmJteWp2ZW1jd3hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NjE4NzUsImV4cCI6MjA5NDIzNzg3NX0.yDAC12BTUXYMSWVN4EhDxpiEQZQn5bTp87IA6LyFKNc";
@@ -92,6 +92,8 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 @keyframes badgePop{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
 .page{padding:20px 20px 100px;animation:fadeUp .3s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.tab-content{animation:tabSlide .25s ease}
+@keyframes tabSlide{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:translateX(0)}}
 .ptitle{font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-0.5px}
 .psub{font-size:13px;color:${G.textMuted};margin-bottom:24px}
 .card{background:${G.card};border:1px solid ${G.border};border-radius:16px;padding:16px;margin-bottom:12px;transition:all .2s;animation:fadeUp .3s ease both}
@@ -111,7 +113,7 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .btn:active{transform:scale(0.97)}
 .bp{background:${G.accent};color:#070c09;box-shadow:0 0 20px rgba(57,217,106,.25)}
 .bp:hover{box-shadow:0 0 30px rgba(57,217,106,.5);transform:translateY(-1px)}
-.bp:active{transform:scale(0.97);box-shadow:0 0 10px rgba(57,217,106,.2)}
+.bp:active{transform:scale(0.97)}
 .bp:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .bo2{background:transparent;color:${G.text};border:1px solid ${G.border}}
 .bo2:hover{border-color:${G.accentDark};background:rgba(57,217,106,.05)}
@@ -144,8 +146,8 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .tbtn:active{transform:scale(0.97)}
 .div{height:1px;background:${G.border};margin:16px 0}
 .empty{text-align:center;padding:50px 20px;color:${G.textMuted};animation:fadeUp .4s ease}
-.empty svg{width:48px;height:48px;margin-bottom:12px;opacity:.4}
-.empty p{font-size:14px}
+.empty-emoji{font-size:48px;margin-bottom:12px}
+.empty p{font-size:14px;margin-bottom:16px}
 .moverlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:overlayIn .2s ease}
 @keyframes overlayIn{from{opacity:0}to{opacity:1}}
 .modal{background:${G.surface};border:1px solid ${G.border};border-top:2px solid ${G.accentDark};border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;max-width:430px;max-height:90vh;overflow-y:auto;animation:modalUp .3s cubic-bezier(.34,1.56,.64,1)}
@@ -160,7 +162,7 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .vpill:hover{background:rgba(57,217,106,.15)}
 .spinner{width:20px;height:20px;border:2px solid ${G.border};border-top-color:${G.accent};border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-.skeleton{background:linear-gradient(90deg,${G.card} 25%,${G.surface} 50%,${G.card} 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;height:80px;margin-bottom:12px}
+.skeleton{background:linear-gradient(90deg,${G.card} 25%,${G.surface} 50%,${G.card} 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px;margin-bottom:12px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .success-check{display:flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:rgba(57,217,106,.15);border:2px solid ${G.accent};margin:0 auto 16px;animation:checkIn .4s cubic-bezier(.34,1.56,.64,1)}
 @keyframes checkIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
@@ -182,9 +184,17 @@ body{background:${G.bg};color:${G.text};font-family:'Sora',sans-serif;min-height
 .toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:${G.card};border:1px solid ${G.accent};border-radius:12px;padding:12px 20px;font-size:13px;color:${G.accent};z-index:300;animation:toastIn .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px) scale(0.9)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
 .onboarding{padding:40px 24px;text-align:center;animation:fadeUp .4s ease}
-.onboarding-icon{font-size:64px;margin-bottom:20px}
+.onboarding-icon{font-size:64px;margin-bottom:20px;animation:bounce 2s infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
 .onboarding h2{font-size:24px;font-weight:700;margin-bottom:8px}
 .onboarding p{font-size:14px;color:${G.textMuted};line-height:1.6;margin-bottom:32px}
+.ptr{text-align:center;padding:12px;font-size:12px;color:${G.textMuted};animation:fadeUp .3s ease}
+.ptr-arrow{display:inline-block;margin-right:6px;animation:spin 1s linear infinite}
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+.filter-bar::-webkit-scrollbar{display:none}
+.fbtn{border:none;border-radius:20px;padding:6px 14px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap;background:${G.card};color:${G.textMuted};border:1px solid ${G.border}}
+.fbtn.active{background:${G.accent};color:#070c09;border-color:${G.accent}}
+.fbtn:active{transform:scale(0.95)}
 `;
 
 const STATUTS = {
@@ -196,10 +206,35 @@ const STATUTS = {
 const CRENEAUX = { matin: "Matin (8h–12h)", apres_midi: "Après-midi (13h–17h)", flexible: "Flexible" };
 function fmtDate(d) { if (!d) return "—"; return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}); }
 
-// ── TOAST ─────────────────────────────────────────────────────────────────────
 function Toast({ msg, onDone }) {
   useEffect(() => { const t = setTimeout(onDone, 2500); return () => clearTimeout(t); }, []);
   return <div className="toast">✓ {msg}</div>;
+}
+
+function PullToRefresh({ onRefresh }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const startY = useRef(0);
+
+  useEffect(() => {
+    const handleTouchStart = e => { startY.current = e.touches[0].clientY; };
+    const handleTouchEnd = async e => {
+      const diff = e.changedTouches[0].clientY - startY.current;
+      if (diff > 80 && window.scrollY === 0) {
+        setRefreshing(true);
+        await onRefresh();
+        setRefreshing(false);
+      }
+    };
+    window.addEventListener("touchstart", handleTouchStart);
+    window.addEventListener("touchend", handleTouchEnd);
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [onRefresh]);
+
+  if (!refreshing) return null;
+  return <div className="ptr"><span className="ptr-arrow">↻</span> Actualisation...</div>;
 }
 
 const Ic = {
@@ -219,7 +254,7 @@ const Ic = {
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
   map: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>,
   shield: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  star: <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
 };
 
 function SBadge({ statut }) {
@@ -227,7 +262,6 @@ function SBadge({ statut }) {
   return <span className={`badge ${s.cls}`}>{s.label}</span>;
 }
 
-// ── PAGES LÉGALES ─────────────────────────────────────────────────────────────
 function CGUPage({ onBack }) {
   return (
     <div className="lscreen" style={{justifyContent:"flex-start",paddingTop:20}}>
@@ -290,7 +324,6 @@ function RGPDPage({ onBack }) {
   );
 }
 
-// ── LOGIN ──────────────────────────────────────────────────────────────────────
 function Login({ onLogin }) {
   const [mode, setMode] = useState("login");
   const [f, setF] = useState({ email:"", password:"", nom:"", tel:"", adresse:"", ville:"", code_postal:"", secteur:"Restaurant" });
@@ -312,7 +345,7 @@ function Login({ onLogin }) {
 
   async function register() {
     if (!f.nom||!f.email||!f.password||!f.tel||!f.adresse||!f.ville||!f.code_postal) return setErr("Tous les champs sont obligatoires.");
-    if (!cgu) return setErr("Vous devez accepter les CGU et la politique de confidentialité.");
+    if (!cgu) return setErr("Vous devez accepter les CGU.");
     setLoading(true); setErr("");
     try {
       const existing = await sbGet("utilisateurs", `email=eq.${encodeURIComponent(f.email)}&limit=1`);
@@ -380,7 +413,6 @@ function Login({ onLogin }) {
   );
 }
 
-// ── MOT DE PASSE OUBLIÉ ────────────────────────────────────────────────────────
 function ForgotPassword({ onBack }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -429,7 +461,6 @@ function ForgotPassword({ onBack }) {
   );
 }
 
-// ── CARTE TAB ─────────────────────────────────────────────────────────────────
 function CarteTab({ clients, demandes }) {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -476,12 +507,18 @@ function CarteTab({ clients, demandes }) {
   }, [clients]);
 
   return (
-    <div className="page">
+    <div className="page tab-content">
       <p className="ptitle">Carte des clients</p>
       <p className="psub">{clients.length} établissements</p>
-      {loading && <><div className="skeleton"/><div className="skeleton" style={{height:60}}/><div className="skeleton" style={{height:60}}/></>}
+      {loading && <><div className="skeleton" style={{height:200}}/><div className="skeleton" style={{height:60}}/></>}
       <div id="leaflet-map" className="map-container" style={{display:loading?"none":"block"}}/>
-      {!loading && markers.length === 0 && <div className="empty">{Ic.map}<p>Aucun client géolocalisable</p></div>}
+      {!loading && markers.length === 0 && (
+        <div className="empty">
+          <div className="empty-emoji">🗺️</div>
+          <p>Aucun client géolocalisable</p>
+          <p style={{fontSize:12}}>Les clients doivent avoir une adresse complète</p>
+        </div>
+      )}
       {!loading && markers.map((c,i) => (
         <div className="card" key={c.id} style={{animationDelay:`${i*0.05}s`}}>
           <div className="ch">
@@ -495,7 +532,6 @@ function CarteTab({ clients, demandes }) {
   );
 }
 
-// ── STATS TAB ─────────────────────────────────────────────────────────────────
 function StatsTab({ demandes, clients }) {
   const totalVol = demandes.filter(d=>d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0);
   const totalCA = (totalVol * 0.5).toFixed(0);
@@ -519,7 +555,7 @@ function StatsTab({ demandes, clients }) {
   })).sort((a,b)=>b.vol-a.vol).slice(0,5);
 
   return (
-    <div className="page">
+    <div className="page tab-content">
       <p className="ptitle">Statistiques</p>
       <p className="psub">Vue d'ensemble de l'activité</p>
       <div className="sgrid">
@@ -563,7 +599,12 @@ function StatsTab({ demandes, clients }) {
         ))}
       </div>
       <p className="stitle" style={{marginTop:16}}>Top clients par volume</p>
-      {topClients.length===0&&<div className="empty">{Ic.drop}<p>Aucune collecte réalisée</p></div>}
+      {topClients.length===0 && (
+        <div className="empty">
+          <div className="empty-emoji">🏆</div>
+          <p>Aucune collecte réalisée pour l'instant</p>
+        </div>
+      )}
       {topClients.map((c,i)=>(
         <div className="card" key={c.id} style={{animationDelay:`${i*0.05}s`}}>
           <div className="ch">
@@ -576,7 +617,6 @@ function StatsTab({ demandes, clients }) {
   );
 }
 
-// ── CLIENT APP ─────────────────────────────────────────────────────────────────
 function ClientApp({ user, onLogout }) {
   const [tab, setTab] = useState("home");
   const [demandes, setDemandes] = useState([]);
@@ -586,6 +626,7 @@ function ClientApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [legalPage, setLegalPage] = useState(null);
+  const [filtre, setFiltre] = useState("tous");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -632,18 +673,20 @@ function ClientApp({ user, onLogout }) {
   const up = k => e => setForm(p=>({...p,[k]:e.target.value}));
   const pending = demandes.filter(d=>d.statut==="en_attente").length;
   const firstTime = demandes.length === 0 && !loading;
+  const demandesFiltrees = filtre === "tous" ? demandes : demandes.filter(d=>d.statut===filtre);
 
   return (
     <div className="shell">
       <style>{css}</style>
       {toast && <Toast msg={toast} onDone={()=>setToast(null)} />}
+      <PullToRefresh onRefresh={load} />
       <div className="header">
         <div className="logo">UCO_<span>collect</span></div>
         <div className="ubadge" onClick={onLogout}><div className="rdot client"/><span>{user.nom.split(" ")[0]}</span>{Ic.logout}</div>
       </div>
 
       {tab==="home" && (
-        <div className="page">
+        <div className="page tab-content">
           <p className="ptitle">Bonjour 👋</p>
           <p className="psub">{user.nom}</p>
           <div className="sgrid">
@@ -651,7 +694,6 @@ function ClientApp({ user, onLogout }) {
             <div className="sc"><div className="sv">{demandes.filter(d=>d.statut==="collectée").length}</div><div className="sl">Collectées</div></div>
           </div>
           <button className="btn bp bfull" style={{marginBottom:24}} onClick={()=>setModal(true)}>{Ic.plus} Demander une collecte</button>
-
           {firstTime ? (
             <div className="onboarding">
               <div className="onboarding-icon">🛢️</div>
@@ -661,35 +703,42 @@ function ClientApp({ user, onLogout }) {
             </div>
           ) : (
             <>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                 <p className="stitle" style={{margin:0}}>Dernières demandes</p>
                 <button className="btn bo2 bsm" onClick={load} style={{padding:"4px 10px"}}>{Ic.refresh}</button>
               </div>
-              <div style={{marginTop:12}}>
-                {loading && <><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></>}
-                {!loading && demandes.slice(0,5).map((d,i)=>(
-                  <div className="card" key={d.id} style={{animationDelay:`${i*0.05}s`}}>
-                    <div className="ch"><div><div className="ct">{fmtDate(d.date_souhaitee)}</div><div className="cs">{CRENEAUX[d.creneau]}</div></div><SBadge statut={d.statut}/></div>
-                    <span className="vpill">{Ic.drop} {d.volume_estime} L estimés</span>
-                  </div>
-                ))}
-              </div>
+              {loading && <><div className="skeleton" style={{height:80}}/><div className="skeleton" style={{height:80}}/></>}
+              {!loading && demandes.slice(0,5).map((d,i)=>(
+                <div className="card" key={d.id} style={{animationDelay:`${i*0.05}s`}}>
+                  <div className="ch"><div><div className="ct">{fmtDate(d.date_souhaitee)}</div><div className="cs">{CRENEAUX[d.creneau]}</div></div><SBadge statut={d.statut}/></div>
+                  <span className="vpill">{Ic.drop} {d.volume_estime} L estimés</span>
+                </div>
+              ))}
             </>
           )}
         </div>
       )}
 
       {tab==="demandes" && (
-        <div className="page">
+        <div className="page tab-content">
           <p className="ptitle">Mes demandes</p>
           <p className="psub">{demandes.length} demande{demandes.length>1?"s":""}</p>
-          {loading && <><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></>}
-          {!loading && demandes.length===0 && (
-            <div className="empty">{Ic.list}<p>Aucune demande pour l'instant</p>
-              <button className="btn bp" style={{margin:"16px auto 0"}} onClick={()=>setTab("home")}>{Ic.plus} Faire une demande</button>
+          <div className="filter-bar">
+            {["tous","en_attente","acceptée","collectée","refusée"].map(f=>(
+              <button key={f} className={`fbtn ${filtre===f?"active":""}`} onClick={()=>setFiltre(f)}>
+                {f==="tous"?"Toutes":STATUTS[f]?.label||f}
+              </button>
+            ))}
+          </div>
+          {loading && <><div className="skeleton" style={{height:80}}/><div className="skeleton" style={{height:80}}/></>}
+          {!loading && demandesFiltrees.length===0 && (
+            <div className="empty">
+              <div className="empty-emoji">📋</div>
+              <p>{filtre==="tous"?"Aucune demande pour l'instant":"Aucune demande avec ce statut"}</p>
+              {filtre==="tous" && <button className="btn bp" style={{margin:"0 auto"}} onClick={()=>setTab("home")}>{Ic.plus} Faire une demande</button>}
             </div>
           )}
-          {!loading && demandes.map((d,i)=>(
+          {!loading && demandesFiltrees.map((d,i)=>(
             <div className="card" key={d.id} style={{animationDelay:`${i*0.05}s`}}>
               <div className="ch"><div><div className="ct">{fmtDate(d.date_souhaitee)}</div><div className="cs">{CRENEAUX[d.creneau]}</div></div><SBadge statut={d.statut}/></div>
               <span className="vpill" style={{marginBottom:8}}>{Ic.drop} {d.volume_estime} L</span>
@@ -701,11 +750,10 @@ function ClientApp({ user, onLogout }) {
       )}
 
       {tab==="profil" && (
-        <div className="page">
+        <div className="page tab-content">
           <p className="ptitle">Mon profil</p>
-          <p className="psub">Informations de l'établissement</p>
           <div style={{textAlign:"center",marginBottom:20}}>
-            <div style={{width:64,height:64,borderRadius:"50%",background:G.accentGlow,border:`2px solid ${G.accent}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 8px",fontSize:24}}>
+            <div style={{width:64,height:64,borderRadius:"50%",background:G.accentGlow,border:`2px solid ${G.accent}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 8px",fontSize:24,fontWeight:700,color:G.accent}}>
               {user.nom[0].toUpperCase()}
             </div>
             <div style={{fontSize:16,fontWeight:700}}>{user.nom}</div>
@@ -758,7 +806,6 @@ function ClientApp({ user, onLogout }) {
   );
 }
 
-// ── COLLECTEUR APP ─────────────────────────────────────────────────────────────
 function CollecteurApp({ user, onLogout }) {
   const [tab, setTab] = useState("home");
   const [demandes, setDemandes] = useState([]);
@@ -768,6 +815,8 @@ function CollecteurApp({ user, onLogout }) {
   const [updating, setUpdating] = useState(false);
   const [toast, setToast] = useState(null);
   const [legalPage, setLegalPage] = useState(null);
+  const [filtre, setFiltre] = useState("tous");
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -815,12 +864,23 @@ function CollecteurApp({ user, onLogout }) {
   const acceptees  = demandes.filter(d=>d.statut==="acceptée");
   const totalVol   = demandes.filter(d=>d.statut==="collectée").reduce((s,d)=>s+(d.volume_estime||0),0);
 
+  const demandesFiltrees = demandes
+    .filter(d => filtre === "tous" || d.statut === filtre)
+    .filter(d => search === "" || d.client_nom?.toLowerCase().includes(search.toLowerCase()) || d.adresse?.toLowerCase().includes(search.toLowerCase()));
+
   function DCard({ d, i }) {
     const client = clients.find(u=>u.id===d.client_id);
     return (
       <div className="card" onClick={()=>setSel(d)} style={{cursor:"pointer",animationDelay:`${i*0.05}s`}}>
         <div className="ch">
-          <div><div className="ct">{d.client_nom}</div><div className="cs">{client?.secteur||""} · {fmtDate(d.date_souhaitee)}</div></div>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:G.accentGlow,border:`1px solid ${G.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:G.accent,flexShrink:0}}>
+                {d.client_nom?.[0]?.toUpperCase()}
+              </div>
+              <div><div className="ct">{d.client_nom}</div><div className="cs">{client?.secteur||""} · {fmtDate(d.date_souhaitee)}</div></div>
+            </div>
+          </div>
           <SBadge statut={d.statut}/>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:8}}>
@@ -836,6 +896,7 @@ function CollecteurApp({ user, onLogout }) {
     <div className="shell">
       <style>{css}</style>
       {toast && <Toast msg={toast} onDone={()=>setToast(null)} />}
+      <PullToRefresh onRefresh={load} />
       <div className="header">
         <div className="logo">UCO_<span>admin</span></div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -845,10 +906,10 @@ function CollecteurApp({ user, onLogout }) {
       </div>
 
       {tab==="home" && (
-        <div className="page">
+        <div className="page tab-content">
           <p className="ptitle">Tableau de bord</p>
           <p className="psub">Bonjour, {user.nom} 👋</p>
-          {loading && <><div className="skeleton"/><div className="skeleton"/></>}
+          {loading && <><div className="skeleton" style={{height:120}}/><div className="skeleton" style={{height:80}}/></>}
           {!loading && (
             <div className="sgrid">
               {[
@@ -867,39 +928,62 @@ function CollecteurApp({ user, onLogout }) {
           {enAttente.length>0&&<><p className="stitle">⚡ À traiter</p>{enAttente.map((d,i)=><DCard key={d.id} d={d} i={i}/>)}</>}
           {acceptees.length>0&&<><p className="stitle">📅 Planifiées</p>{acceptees.map((d,i)=><DCard key={d.id} d={d} i={i}/>)}</>}
           {!loading&&enAttente.length===0&&acceptees.length===0&&(
-            <div className="empty">{Ic.truck}<p>Aucune demande active 🎉</p></div>
+            <div className="empty">
+              <div className="empty-emoji">🎉</div>
+              <p>Aucune demande active !</p>
+              <p style={{fontSize:12}}>Toutes les demandes sont traitées</p>
+            </div>
           )}
         </div>
       )}
 
       {tab==="demandes" && (
-        <div className="page">
+        <div className="page tab-content">
           <p className="ptitle">Toutes les demandes</p>
           <p className="psub">{demandes.length} au total</p>
-          {loading && <><div className="skeleton"/><div className="skeleton"/><div className="skeleton"/></>}
-          {!loading&&demandes.length===0&&<div className="empty">{Ic.list}<p>Aucune demande</p></div>}
-          {!loading&&[...enAttente,...acceptees,...demandes.filter(d=>d.statut==="collectée"||d.statut==="refusée")].map((d,i)=><DCard key={d.id} d={d} i={i}/>)}
+          <div className="fg" style={{position:"relative"}}>
+            <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:G.textMuted}}>{Ic.search}</span>
+            <input className="fi" placeholder="Rechercher un client..." value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:36}} />
+          </div>
+          <div className="filter-bar">
+            {["tous","en_attente","acceptée","collectée","refusée"].map(f=>(
+              <button key={f} className={`fbtn ${filtre===f?"active":""}`} onClick={()=>setFiltre(f)}>
+                {f==="tous"?"Toutes":STATUTS[f]?.label||f}
+              </button>
+            ))}
+          </div>
+          {loading && <><div className="skeleton" style={{height:80}}/><div className="skeleton" style={{height:80}}/><div className="skeleton" style={{height:80}}/></>}
+          {!loading&&demandesFiltrees.length===0&&(
+            <div className="empty">
+              <div className="empty-emoji">🔍</div>
+              <p>Aucune demande trouvée</p>
+            </div>
+          )}
+          {!loading&&demandesFiltrees.map((d,i)=><DCard key={d.id} d={d} i={i}/>)}
         </div>
       )}
 
       {tab==="clients" && (
-        <div className="page">
+        <div className="page tab-content">
           <p className="ptitle">Clients</p>
           <p className="psub">{clients.length} établissements inscrits</p>
-          {loading && <><div className="skeleton"/><div className="skeleton"/></>}
-          {!loading&&clients.length===0&&<div className="empty">{Ic.user}<p>Aucun client inscrit</p></div>}
+          {loading && <><div className="skeleton" style={{height:80}}/><div className="skeleton" style={{height:80}}/></>}
+          {!loading&&clients.length===0&&(
+            <div className="empty">
+              <div className="empty-emoji">🏪</div>
+              <p>Aucun client inscrit pour l'instant</p>
+            </div>
+          )}
           {!loading&&clients.map((c,i)=>{
             const nb=demandes.filter(d=>d.client_id===c.id&&d.statut==="collectée").length;
             return (
               <div className="card" key={c.id} style={{animationDelay:`${i*0.05}s`}}>
                 <div className="ch">
-                  <div>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{width:32,height:32,borderRadius:"50%",background:G.accentGlow,border:`1px solid ${G.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:G.accent}}>
-                        {c.nom[0].toUpperCase()}
-                      </div>
-                      <div><div className="ct">{c.nom}</div><div className="cs">{c.secteur}</div></div>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",background:G.accentGlow,border:`1px solid ${G.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:G.accent,flexShrink:0}}>
+                      {c.nom[0].toUpperCase()}
                     </div>
+                    <div><div className="ct">{c.nom}</div><div className="cs">{c.secteur}</div></div>
                   </div>
                   <span className="badge bo">{nb} collecte{nb>1?"s":""}</span>
                 </div>
